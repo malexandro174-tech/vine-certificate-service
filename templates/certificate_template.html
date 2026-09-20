@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><style>
+@page { size: A4 landscape; margin: 0; }
+body { margin:0; font-family: Georgia, serif; color:#243d2b; background:#f6f1df; }
+.certificate { box-sizing:border-box; width:297mm; height:210mm; padding:24mm; border:12mm solid #365d3a; background:radial-gradient(circle at 8% 90%,#c8df9b 0 3mm,transparent 3.2mm),linear-gradient(135deg,#fffdf5,#edf2dd); }
+.eyebrow { color:#7b983e; letter-spacing:3px; text-transform:uppercase; font:600 11pt Arial; }
+h1 { font-size:34pt; margin:14mm 0 7mm; max-width:190mm; }
+.owner { font-size:26pt; color:#6c4022; border-bottom:1px solid #b2a167; display:inline-block; padding:0 8mm 3mm; }
+.details { margin-top:13mm; display:grid; grid-template-columns:1fr 1fr; gap:6mm; font:12pt Arial; }
+.label { color:#6e7e54; text-transform:uppercase; font-size:8pt; letter-spacing:1px; }
+.value { margin-top:2mm; font-weight:700; }
+.footer { margin-top:16mm; font:10pt Arial; max-width:200mm; }
+</style></head><body><main class="certificate">
+<div class="eyebrow">Vine Certificate Service</div>
+<h1>Сертификат на именную виноградную лозу</h1>
+<div>Настоящим подтверждается, что</div><div class="owner">{{client_name}}</div>
+<div class="details"><div><div class="label">Сертификат</div><div class="value">{{certificate_name}}</div></div><div><div class="label">Уникальный код</div><div class="value">{{certificate_code}}</div></div><div><div class="label">Дата покупки</div><div class="value">{{purchase_date}}</div></div><div><div class="label">Статус</div><div class="value">Ожидает активации</div></div></div>
+<p class="footer">Поздравляем! Для активации один раз укажите код сертификата, имя владельца и имя лозы в защищённой форме сервиса.</p>
+</main></body></html>

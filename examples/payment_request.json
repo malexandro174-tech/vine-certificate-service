@@ -1,0 +1,8 @@
+{
+  "order_id": "ORD-1001",
+  "client_name": "Тестовый клиент",
+  "email": "test@example.invalid",
+  "certificate_name": "Именная виноградная лоза",
+  "amount": 15000,
+  "payment_status": "paid"
+}

@@ -1,0 +1,9 @@
+.env
+*.env
+credentials*
+secrets/
+output/
+*.pdf
+!docs/screenshots/*.pdf
+__pycache__/
+.DS_Store
