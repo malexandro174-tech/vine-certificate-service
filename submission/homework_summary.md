@@ -6,4 +6,4 @@
 - Duplicate order: one row and one stable code.
 - Activation: one active vine and one initial vine update.
 - PDF: `output/VINE-ORD1001-20260920-STNK.pdf`.
-- Email: isolated SMTP TEST delivery reached the provider, but the current credential was rejected with SMTP 535 authentication failure. Recipient and credential values are intentionally omitted from public evidence.
+- Email: isolated SMTP TEST self-send completed successfully in n8n execution `31455`; recipient and credential values are intentionally omitted from public evidence.
