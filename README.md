@@ -18,7 +18,7 @@ flowchart LR
   P[Payment Webhook] --> W1[n8n Payment Processing]
   W1 --> DB[(PostgreSQL: vine_certificate_service)]
   W1 --> PDF[HTML / PDF certificate]
-  W1 --> Mail[SMTP/Gmail delivery]
+  W1 --> Mail[Approved SMTP delivery]
   A[Activation Webhook] --> W2[n8n Activation]
   W2 --> DB
 ```
@@ -27,10 +27,10 @@ flowchart LR
 
 1. Примените `database/schema.sql` к PostgreSQL Mag_OS.
 2. Импортируйте `workflows/payment_processing.json` и `workflows/activation.json` в n8n.
-3. Привяжите существующий PostgreSQL credential к Postgres nodes и разрешённый TEST mail credential к email node.
+3. После импорта привяжите существующий PostgreSQL credential к Postgres nodes. Для доставки используйте отдельный approved SMTP workflow/credential; он не экспортируется в репозиторий.
 4. Используйте payload из `examples/`.
 
-## Защита и ограничения demo-версии
+## Защита и ограничения
 
 Workflow exports не содержат credentials, токенов, паролей, реальных email или приватных URL. Реальная платёжная система заменена test webhook. PDF хранится в project output/storage, а публикация ссылки зависит от выбранного storage adapter.
 
