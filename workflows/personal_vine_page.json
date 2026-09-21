@@ -1,0 +1,137 @@
+{
+  "id": "dSPPRqFSUbhyRUuw",
+  "name": "Mag_OS — Vine Certificate — Personal Vine Page",
+  "active": false,
+  "nodes": [
+    {
+      "id": "vine-page-webhook",
+      "name": "Personal Vine Page Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "vine",
+        "responseMode": "responseNode"
+      },
+      "webhookId": "vine-personal-page-v1"
+    },
+    {
+      "id": "vine-page-validate",
+      "name": "Validate Certificate Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const raw = String($json.query?.certificate_code ?? '').trim();\nconst valid = /^VINE-[A-Z0-9-]{8,80}$/.test(raw);\nreturn [{json:{certificate_code: valid ? raw : 'INVALID', input_valid: valid}}];"
+      }
+    },
+    {
+      "id": "vine-page-read",
+      "name": "Read Vine Page (SELECT only)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH input AS (SELECT '{{$json.certificate_code}}'::text AS certificate_code, {{$json.input_valid}}::boolean AS input_valid)\nSELECT input.input_valid,\n  CASE WHEN input.input_valid THEN EXISTS (SELECT 1 FROM vine_certificate_service.vines v WHERE v.certificate_code=input.certificate_code) ELSE false END AS found,\n  COALESCE((SELECT jsonb_build_object(\n    'certificate_code',v.certificate_code,'owner_name',v.owner_name,'vine_name',v.vine_name,\n    'photo_link',v.photo_link,'status',v.status,'last_update',v.last_update,\n    'updates',COALESCE((SELECT jsonb_agg(jsonb_build_object('update_text',u.update_text,'photo_link',u.photo_link,'date',u.date) ORDER BY u.date DESC,u.created_at DESC) FROM vine_certificate_service.vine_updates u WHERE u.certificate_code=v.certificate_code),'[]'::jsonb)\n  ) FROM vine_certificate_service.vines v WHERE v.certificate_code=input.certificate_code),'{}'::jsonb)::text AS vine_json\nFROM input;"
+      }
+    },
+    {
+      "id": "vine-page-render",
+      "name": "Render Personal Vine Page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const esc = (value) => String(value ?? '').replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));\nconst safeImage = (value) => /^https:\\/\\//i.test(String(value ?? '')) ? String(value) : '';\nconst found = $json.input_valid === true && ($json.found === true || String($json.found) === 'true');\nconst base = '<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Vine Certificate Service</title><style>:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#102018;color:#f4f2e8;font:16px/1.55 Inter,system-ui,sans-serif}.wrap{max-width:820px;margin:auto;padding:28px 18px 56px}.brand{color:#b6d76a;text-transform:uppercase;letter-spacing:.12em;font-size:.78rem}.card{background:#1a3024;border:1px solid #34523c;border-radius:20px;overflow:hidden;box-shadow:0 20px 50px #0006}.hero{width:100%;max-height:320px;object-fit:cover;background:#28412f}.body{padding:26px}.pill{display:inline-block;padding:5px 12px;border-radius:99px;background:#315d3b;color:#e6f5bd;font-weight:700}.code{font-family:ui-monospace,monospace;color:#d4e89b;overflow-wrap:anywhere}.updates{display:grid;gap:14px;margin-top:18px}.update{padding:16px;border:1px solid #36533d;border-radius:14px;background:#14271c}.update img{width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin-top:12px}.muted{color:#bbcabd}.notfound{text-align:center;padding:64px 24px}@media(max-width:560px){.wrap{padding:14px}.body{padding:20px}}</style></head><body><main class=\"wrap\"><div class=\"brand\">Vine Certificate Service</div>';\nlet html, status;\nif (!found) {\n status=404; html=base+'<section class=\"card notfound\"><h1>Сертификат не найден</h1><p class=\"muted\">Проверьте код сертификата и повторите попытку.</p></section></main></body></html>';\n} else {\n status=200; const v=JSON.parse($json.vine_json); const photo=safeImage(v.photo_link); const updates=(v.updates||[]).map(u=>'<article class=\"update\"><strong>'+esc(u.date)+'</strong><p>'+esc(u.update_text)+'</p>'+(safeImage(u.photo_link)?'<img src=\"'+esc(safeImage(u.photo_link))+'\" alt=\"Фото обновления лозы\">':'')+'</article>').join('') || '<p class=\"muted\">Обновлений пока нет.</p>';\n html=base+'<section class=\"card\">'+(photo?'<img class=\"hero\" src=\"'+esc(photo)+'\" alt=\"Именная виноградная лоза\">':'')+'<div class=\"body\"><span class=\"pill\">'+esc(v.status)+'</span><h1>'+esc(v.vine_name)+'</h1><p>Владелец: <strong>'+esc(v.owner_name)+'</strong></p><p class=\"code\">'+esc(v.certificate_code)+'</p><p class=\"muted\">Последнее обновление: '+esc(v.last_update)+'</p><h2>История лозы</h2><div class=\"updates\">'+updates+'</div></div></section></main></body></html>';\n}\nreturn [{json:{html,http_status:status}}];"
+      }
+    },
+    {
+      "id": "vine-page-response",
+      "name": "Personal Vine Page Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        300
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": "={{ $json.http_status }}",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Personal Vine Page Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Certificate Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Certificate Code": {
+      "main": [
+        [
+          {
+            "node": "Read Vine Page (SELECT only)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Vine Page (SELECT only)": {
+      "main": [
+        [
+          {
+            "node": "Render Personal Vine Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render Personal Vine Page": {
+      "main": [
+        [
+          {
+            "node": "Personal Vine Page Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

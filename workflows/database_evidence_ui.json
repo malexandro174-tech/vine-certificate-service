@@ -1,0 +1,137 @@
+{
+  "id": "HHSHu4j3fUbB02jf",
+  "name": "Mag_OS — Vine Certificate — Database Evidence UI",
+  "active": false,
+  "nodes": [
+    {
+      "id": "evidence-webhook",
+      "name": "Database Evidence UI Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "vine-evidence",
+        "responseMode": "responseNode"
+      },
+      "webhookId": "vine-database-evidence-ui-v1"
+    },
+    {
+      "id": "evidence-validate",
+      "name": "Validate Evidence Table",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const requested=String($json.query?.table ?? '').trim().toLowerCase();\nconst table={orders:'orders',vines:'vines',vineupdates:'vine_updates',vine_updates:'vine_updates'}[requested] ?? 'invalid';\nreturn [{json:{table}}];"
+      }
+    },
+    {
+      "id": "evidence-read",
+      "name": "Read Database Evidence (SELECT only)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH o AS (SELECT order_id,client_name,CASE WHEN email IS NULL THEN NULL ELSE left(email,1)||'***'||substring(email from '@.*$') END AS email,certificate_name,amount,payment_status,certificate_code,certificate_link,created_at FROM vine_certificate_service.orders WHERE certificate_code='VINE-ORD1001-20260920-STNK'), v AS (SELECT certificate_code,owner_name,vine_name,photo_link,status,last_update FROM vine_certificate_service.vines WHERE certificate_code='VINE-ORD1001-20260920-STNK'), u AS (SELECT certificate_code,update_text,photo_link,date FROM vine_certificate_service.vine_updates WHERE certificate_code='VINE-ORD1001-20260920-STNK') SELECT '{{$json.table}}' AS requested_table,(SELECT COALESCE(jsonb_agg(to_jsonb(o)),'[]'::jsonb) FROM o)::text AS orders_json,(SELECT COALESCE(jsonb_agg(to_jsonb(v)),'[]'::jsonb) FROM v)::text AS vines_json,(SELECT COALESCE(jsonb_agg(to_jsonb(u)),'[]'::jsonb) FROM u)::text AS updates_json;"
+      }
+    },
+    {
+      "id": "evidence-render",
+      "name": "Render Database Evidence UI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const esc=s=>String(s??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));\nconst table=$json.requested_table; const config={orders:{title:'Orders',json:'orders_json',columns:['order_id','client_name','email','certificate_name','amount','payment_status','certificate_code','certificate_link','created_at']},vines:{title:'Vines',json:'vines_json',columns:['certificate_code','owner_name','vine_name','photo_link','status','last_update']},vine_updates:{title:'VineUpdates',json:'updates_json',columns:['certificate_code','update_text','photo_link','date']}}[table];\nconst shell=(title,body)=>'<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>'+esc(title)+' — Vine Certificate Service</title><style>*{box-sizing:border-box}body{margin:0;background:#102018;color:#eef4e9;font:16px/1.5 system-ui,sans-serif}.wrap{max-width:1180px;margin:auto;padding:30px 18px}.brand{font-size:12px;letter-spacing:.12em;color:#b7dc75}.card{margin-top:16px;background:#193025;border:1px solid #3d5e45;border-radius:18px;padding:22px;overflow:auto}.badge{color:#d5f39a;background:#315c3c;padding:5px 10px;border-radius:99px;font-weight:700}table{border-collapse:collapse;width:100%;min-width:760px;margin-top:18px}th,td{padding:12px;border-bottom:1px solid #3d5e45;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{color:#b7dc75;font-size:13px;text-transform:uppercase;letter-spacing:.04em}td{max-width:260px}.muted{color:#b7c9bb}@media(max-width:620px){.wrap{padding:16px}.card{padding:16px}}</style></head><body><main class=\"wrap\"><div class=\"brand\">VINE CERTIFICATE SERVICE · READ-ONLY DATABASE EVIDENCE</div>'+body+'</main></body></html>';\nif(!config){return [{json:{html:shell('Не найдена таблица','<section class=\"card\"><h1>Таблица не найдена</h1><p class=\"muted\">Разрешены только Orders, Vines и VineUpdates.</p></section>'),http_status:404}}]}\nconst rows=JSON.parse($json[config.json]||'[]'); const head=config.columns.map(c=>'<th>'+esc(c)+'</th>').join(''); const body=rows.length?rows.map(r=>'<tr>'+config.columns.map(c=>'<td>'+esc(r[c])+'</td>').join('')+'</tr>').join(''):'<tr><td colspan=\"'+config.columns.length+'\">Нет записей</td></tr>'; return [{json:{html:shell(config.title,'<section class=\"card\"><span class=\"badge\">real PostgreSQL · read-only</span><h1>'+esc(config.title)+'</h1><table><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></section>'),http_status:200}}];"
+      }
+    },
+    {
+      "id": "evidence-response",
+      "name": "Database Evidence UI Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        940,
+        300
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": "={{ $json.http_status }}",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Database Evidence UI Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Evidence Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Evidence Table": {
+      "main": [
+        [
+          {
+            "node": "Read Database Evidence (SELECT only)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Database Evidence (SELECT only)": {
+      "main": [
+        [
+          {
+            "node": "Render Database Evidence UI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render Database Evidence UI": {
+      "main": [
+        [
+          {
+            "node": "Database Evidence UI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
